@@ -18,6 +18,14 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from std_msgs.msg import String
 from visualization_msgs.msg import Marker
+from geometry_msgs.msg import Pose2D
+from geometry_msgs.msg import Point
+from geometry_msgs.msg import Quaternion
+from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Vector3
+from std_msgs.msg import Header
+from std_msgs.msg import ColorRGBA
+from rclpy.clock import Clock
 
 
 class MinimalPublisher(Node):
@@ -26,8 +34,8 @@ class MinimalPublisher(Node):
         super().__init__('minimal_publisher')
 
         self.subscription = self.create_subscription(
-            Marker,
-            '/personal',
+            Pose2D,
+            '/pose',
             self.listener_callback,
             1)
         self.subscription  # prevent unused variable warning
@@ -42,6 +50,9 @@ class MinimalPublisher(Node):
         self.reset_req = std_srvs.srv.Empty.Request()
         self.reset_client.call_async(self.reset_req)
 
+        self.observation_grid = [ [0]*50 for i in range(50) ]
+        self.observation_count = 0
+
         # Establish client of the set_pen service. This will allow us to chose when the robot
         # draws along its path.
         #self.pen_client = self.create_client(std_srvs.srv.SetBool, 'set_pen')
@@ -50,9 +61,70 @@ class MinimalPublisher(Node):
         #timer_period = 0.1  # seconds
         #self.timer = self.create_timer(timer_period, self.timer_callback)
         #self.i = 0
-
+    
     def listener_callback(self, msg):
-        self.publisher.publish(msg)
+        #pos = -1
+        #for i in range (len(msg.data)):
+        #    if i % 50 == 0:
+        #        pos += 1
+        #    observation_grid[pos][i % 50] = msg.data[i]
+        #
+        #map_type = String()
+
+        #self.publisher.publish(msg)
+
+        x = msg.x
+        y = msg.y
+
+        marker = Marker()
+        new_point = Point()
+        new_point.x = x
+        new_point.y = y
+        new_point.z = 0.0
+
+        # set header
+        new_header = Header()
+        new_header.frame_id = "/world"
+        new_header.stamp = Clock().now().to_msg()
+        marker.header = new_header
+
+        # set shape, Arrow: 0; Cube: 1 ; Sphere: 2 ; Cylinder: 3
+        marker.type = 2
+        marker.id = self.observation_count
+        self.observation_count += 1
+
+        # Set the scale of the marker
+        new_scale = Vector3()
+        new_scale.x = 0.5
+        new_scale.y = 0.5
+        new_scale.z = 0.5
+
+        marker.scale = new_scale
+
+        # Set the color
+        new_color = ColorRGBA()
+        new_color.r = 0.0
+        new_color.g = 1.0
+        new_color.b = 0.0
+        new_color.a = 1.0
+
+        marker.color = new_color
+
+        # Set the pose of the marker
+        new_pose = Pose()
+        new_quat = Quaternion()
+        new_quat.x = 0.0
+        new_quat.y = 0.0
+        new_quat.z = 0.0
+        new_quat.w = 0.0
+
+        new_pose.position = new_point
+        new_pose.orientation = new_quat
+
+        marker.pose = new_pose
+
+        #marker.points = [new_point]
+        self.publisher.publish(marker)
 
     """def timer_callback(self):
         # This array contains all the actions the robot needs to take to draw the A&M logo

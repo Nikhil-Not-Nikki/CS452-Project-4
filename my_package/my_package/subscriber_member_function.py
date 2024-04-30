@@ -30,6 +30,8 @@ from std_msgs.msg import ColorRGBA
 from rclpy.clock import Clock
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import MapMetaData
+from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Pose2D
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -45,7 +47,18 @@ class MinimalSubscriber(Node):
             1)
         self.subscription  # prevent unused variable warning
 
-        self.publisher = self.create_publisher(Marker, '/personal', 10)
+        self.pose_subscription = self.create_subscription(
+            Pose2D,
+            '/pose',
+            self.pose_update,
+            1
+        )
+        self.pose_subscription
+
+        self.robot_x = 0
+        self.robot_y = 0
+
+        self.publisher = self.create_publisher(Marker, '/visualization_marker', 10)
 
         self.second_publisher = self.create_publisher(OccupancyGrid, '/map', 1)
 
@@ -61,6 +74,9 @@ class MinimalSubscriber(Node):
         self.min_x = float('inf')
         self.min_y = float('inf')
 
+    def pose_update(self, msg):
+        self.robot_x = msg.x
+        self.robot_y = msg.y
 
     def listener_callback(self, msg):
         ranges = msg.ranges
@@ -72,14 +88,21 @@ class MinimalSubscriber(Node):
             magnitude = ranges[i]
             if ranges[i] > msg.range_min and ranges[i] < msg.range_max:
                 x = magnitude * math.cos(angle)
+                x += self.robot_x
                 y = magnitude * math.sin(angle)
+                y += self.robot_y
                 self.get_logger().info('I found "x: %f y: %f\n"' % (x, y))
                 item_found = True
+
+                # keep track of number of observations to calculate proabability
+                self.observation_counter = self.observation_counter + 1
+                print("observation counter: ", self.observation_counter)
                 
+                # stuff for publishing markers just to help visualize stuff
                 marker = Marker()
                 new_point = Point()
                 new_point.x = x
-                new_point.y = y
+                new_point.y = y 
                 new_point.z = 0.0
 
                 # set header
@@ -94,9 +117,9 @@ class MinimalSubscriber(Node):
 
                 # Set the scale of the marker
                 new_scale = Vector3()
-                new_scale.x = 1.0
-                new_scale.y = 1.0
-                new_scale.z = 1.0
+                new_scale.x = 0.5
+                new_scale.y = 0.5
+                new_scale.z = 0.5
 
                 marker.scale = new_scale
 
@@ -165,40 +188,41 @@ class MinimalSubscriber(Node):
                 print("X: ", x_cell, " Y: ", y_cell)
 
                 if (x_cell >= 0 and x_cell < 50) and (y_cell >= 0 and y_cell < 50):
-                    self.observation_grid[y_cell][x_cell] = self.observation_grid[y_cell][x_cell] + 1
+                    if self.observation_grid[y_cell][x_cell] < 100:
+                        self.observation_grid[y_cell][x_cell] += 1
 
                 one_dim_len = len(self.observation_grid) * len(self.observation_grid[0])
                 one_dim_arr = [0] * one_dim_len
                 for j in range(len(self.observation_grid)):
                     for k in range(len(self.observation_grid[0])):
+                        #one_dim_arr.append(int((float(self.observation_grid[j][k]) / float(self.observation_counter)) * 100))
                         one_dim_arr.append(self.observation_grid[j][k])
 
                 occupancy_grid.data = one_dim_arr
                 
                 self.second_publisher.publish(occupancy_grid)
 
-                if x > self.max_x:
-                    self.max_x = x
-                if y > self.max_y:
-                    self.max_y = y
-                if x < self.min_x:
-                    self.min_x = x
-                if y < self.min_y:
-                    self.min_y = y
+                #if x > self.max_x:
+                #    self.max_x = x
+                #if y > self.max_y:
+                #    self.max_y = y
+                #if x < self.min_x:
+                #    self.min_x = x
+                #if y < self.min_y:
+                #    self.min_y = y
 
-        self.observation_counter = self.observation_counter + 1
-        print("observation counter: ", self.observation_counter)
         #print("max X = ", self.max_x)
         #print("max Y = ", self.max_y)
         #print("min X = ", self.min_x)
         #print("min Y = ", self.min_y)
 
-        if self.observation_counter > 40:
+        if self.observation_counter > 1000:
             # pixel_plot = plt.figure()
             # pixel_plot.add_axes([0, 0, 50, 50])
             plt.title("Map Representation")
             plt.imshow(self.observation_grid)
             plt.colorbar()
+            plt.ylim(0, 50)
             plt.show()
 
             #for i in range(len(self.observation_grid)):
