@@ -189,7 +189,21 @@ class MinimalSubscriber(Node):
 
                 if (x_cell >= 0 and x_cell < 50) and (y_cell >= 0 and y_cell < 50):
                     if self.observation_grid[y_cell][x_cell] < 100:
-                        self.observation_grid[y_cell][x_cell] += 1
+                        self.observation_grid[y_cell][x_cell] += 3
+
+                #line_slope = float(x_cell - self.robot_x) / float(y_cell - self.robot_y)
+                #if x_cell < self.robot_x:
+                #    for j in range(x_cell + 1, self.robot_x - 1):
+                #        temp_y = int((line_slope * (j - self.robot_x)) + self.robot_y)
+                #        if temp_y >= 0 and temp_y < 50 and j >= 0 and j < 50:
+                #            if self.observation_grid[temp_y][j] > 0:
+                #                self.observation_grid[temp_y][j] -= 2
+                #else:
+                #    for j in range(int(self.robot_x) + 1, int(x_cell) - 1):
+                #        temp_y = int((line_slope * (j - self.robot_x)) + self.robot_y)
+                #        if temp_y >= 0 and temp_y < 50 and j >= 0 and j < 50:
+                #            if self.observation_grid[temp_y][j] > 0:
+                #                self.observation_grid[temp_y][j] -= 2
 
                 one_dim_len = len(self.observation_grid) * len(self.observation_grid[0])
                 one_dim_arr = [0] * one_dim_len
