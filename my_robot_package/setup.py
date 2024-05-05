@@ -20,8 +20,10 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-                'talker = my_package.publisher_member_function:main',
-                'listener = my_package.subscriber_member_function:main',
-        ],
+	    'talker = my_package.publisher_member_function:main',
+	    'listener = my_package.subscriber_member_function:main',
+	    'identifier = my_package.environment_identifier:main',
+	],
+
     },
 )
