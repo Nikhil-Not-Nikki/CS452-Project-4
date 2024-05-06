@@ -31,18 +31,18 @@ class EnvironmentIdentifier(Node):
 
         # Detailed obstacles for each environment
         self.obstacles = {
-            'A': [("circle", 1.875, (35, 35)), ("circle", 1.875, (15, 35)), ("circle", 1.875, (35, 15))],
-            'B': [("circle", 1.875, (35, 35)), ("circle", 1.875, (35, 15)), ("circle", 1.875, (15, 15)), ("circle", 1.875, (15, 35))],
-            'C': [("circle", 2.5, (25, 35)), ("circle", 3.125, (25, 25)), ("circle", 3.75, (25, 15))],
-            'D': [("circle", 2.5, (35, 35)), ("circle", 2.5, (15, 35)), ("circle", 2.5, (35, 15)), ("circle", 2.5, (25, 35)), ("circle", 2.5, (35, 25))],
-            'E': [("circle", 1.875, (35, 35)), ("circle", 1.875, (35, 15)), ("circle", 1.875, (15, 15)), ("circle", 1.875, (15, 35)), ("circle", 2.5, (25, 25))]
+            'A': [("circle", 3.75, (35, 35)), ("circle", 3.75, (15, 35)), ("circle", 3.75, (35, 15))],
+            'B': [("circle", 3.75, (35, 35)), ("circle", 3.75, (35, 15)), ("circle", 3.75, (15, 15)), ("circle", 3.75, (15, 35))],
+            'C': [("circle", 5, (35, 25)), ("circle", 6.25, (25, 25)), ("circle", 7.5, (15, 25))],
+            'D': [("circle", 5, (35, 35)), ("circle", 5, (35, 15)), ("circle", 5, (35, 25)), ("circle", 5, (25, 35))], #("circle", 5, (15, 35))],
+            'E': [("circle", 3.75, (35, 35)), ("circle", 3.75, (35, 15)), ("circle", 3.75, (15, 15)), ("circle", 3.75, (15, 35)), ("circle", 5, (25, 25))]
         }
 
         self.best_score = float('-inf')
         self.best_environment = None
         self.last_map_time = self.get_clock().now()
         self.initialize_obstacles_in_maps()
-        self.plot_all_maps()
+        #self.plot_all_maps()
         # Timer to check for absence of new maps
         self.no_map_timer = self.create_timer(2, self.check_no_map_received)
 
@@ -50,7 +50,7 @@ class EnvironmentIdentifier(Node):
         cx, cy = center
         for x in range(max(0, cx - radius), min(grid.shape[0], cx + radius + 1)):
             for y in range(max(0, cy - radius), min(grid.shape[1], cy + radius + 1)):
-                if (x - cx)**2 + (y - cy)**2 <= radius**2:
+                if (x - cx)**2 + (y - cy)**2 <= radius**2 and (x - cx)**2 + (y - cy)**2 >= (radius - 1)**2:
                     grid[x, y] = value
 
 
@@ -113,6 +113,8 @@ class EnvironmentIdentifier(Node):
         data = np.array(msg.data).reshape((height, width))
         self.input_grid = data
         self.last_map_time = self.get_clock().now()
+
+        self.publish_identified_environment(self.best_environment)
           # Pass the environment name to the plotting function
 
     def check_no_map_received(self):
@@ -162,6 +164,9 @@ class EnvironmentIdentifier(Node):
 
     def compare_maps(self, input_grid, predefined_maps):
         scores = {}
+        distances = {}
+        correlations = {}
+        ssims = {}
         # Normalize the input grid once before comparisons
         normalized_input = self.normalize_grid(input_grid)
         for map_name, map_grid in predefined_maps.items():
@@ -175,8 +180,18 @@ class EnvironmentIdentifier(Node):
                 # Calculate structural similarity index
                 ssim_index = ssim(normalized_input, normalized_map, data_range=normalized_map.max() - normalized_map.min())
                 # Compute a combined score
-                combined_score = (1 - distance) * 0.5 + correlation * 0.25 + ssim_index * 0.25
+                #combined_score = (1 - distance) * 0.5 + correlation * 0.25 + ssim_index * 0.25
+                combined_score = (-distance) * 0.1 + ssim_index * 0.2 + correlation * 12
+                if distance > 11.0 and (correlation + ssim_index) < 0.5:
+                    combined_score -= 10.0
                 scores[map_name] = combined_score
+                distances[map_name] = distance
+                correlations[map_name] = correlation
+
+                print("--------------------------------------")
+                print(f"Distance score for {map_name}: {distance}")
+                print(f"Correlation score for {map_name}: {correlation}")
+                print(f"SSIM index score for {map_name}: {ssim_index}")
                 print(f"Combined score for {map_name}: {combined_score}")  # Debugging print
 
         if scores:
