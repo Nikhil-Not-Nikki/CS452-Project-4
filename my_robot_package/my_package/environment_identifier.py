@@ -20,7 +20,7 @@ class EnvironmentIdentifier(Node):
             1)
         self.input_grid = None
 
-        # Initialize predefined maps with actual map data
+        
         self.predefined_maps = {
             'A': np.random.rand(50, 50),
             'B': np.random.rand(50, 50),
@@ -29,7 +29,7 @@ class EnvironmentIdentifier(Node):
             'E': np.random.rand(50, 50)
         }
 
-        # Detailed obstacles for each environment
+       
         self.obstacles = {
             'A': [("circle", 3.75, (35, 35)), ("circle", 3.75, (15, 35)), ("circle", 3.75, (35, 15))],
             'B': [("circle", 3.75, (35, 35)), ("circle", 3.75, (35, 15)), ("circle", 3.75, (15, 15)), ("circle", 3.75, (15, 35))],
@@ -43,7 +43,6 @@ class EnvironmentIdentifier(Node):
         self.last_map_time = self.get_clock().now()
         self.initialize_obstacles_in_maps()
         #self.plot_all_maps()
-        # Timer to check for absence of new maps
         self.no_map_timer = self.create_timer(2, self.check_no_map_received)
 
     def fill_circle(self, grid, center, radius, value=35):
@@ -75,25 +74,24 @@ class EnvironmentIdentifier(Node):
     def plot_overlay_map(self, input_grid, best_match_grid, input_label='Input Environment', best_match_label='Best Match Environment'):
         plt.figure(figsize=(12, 6))
 
-        # Normalize the grids for better visual comparison
         input_norm = (input_grid - np.min(input_grid)) / (np.max(input_grid) - np.min(input_grid))
         best_match_norm = (best_match_grid - np.min(best_match_grid)) / (np.max(best_match_grid) - np.min(best_match_grid))
 
-        # Create a subplot for the input environment
+
         plt.subplot(1, 2, 1)
         plt.title(input_label)
         plt.imshow(input_norm, cmap='viridis', interpolation='nearest', alpha=0.75)
         plt.colorbar()
         plt.grid(False)
 
-        # Create a subplot for the best matching environment
+
         plt.subplot(1, 2, 2)
         plt.title(best_match_label)
         plt.imshow(best_match_norm, cmap='viridis', interpolation='nearest', alpha=0.75)
         plt.colorbar()
         plt.grid(False)
 
-        # Overlay the images
+
         plt.imshow(best_match_norm, cmap='hot', alpha=0.5, interpolation='nearest')
         plt.colorbar()
         plt.grid(False)
@@ -106,27 +104,27 @@ class EnvironmentIdentifier(Node):
 
         if actual_size != expected_size:
             print(f"Data size mismatch. Expected {expected_size}, but got {actual_size}.")
-            return  # Exit the function or handle the mismatch appropriately
+            return  
 
-        # Assuming the message contains environment info or determining environment by some logic
-         # Implement this method based on your system's logic
+       
+
         data = np.array(msg.data).reshape((height, width))
         self.input_grid = data
         self.last_map_time = self.get_clock().now()
 
         self.publish_identified_environment(self.best_environment)
-          # Pass the environment name to the plotting function
+        
 
     def check_no_map_received(self):
         if (self.get_clock().now() - self.last_map_time).nanoseconds / 1e9 >= 2:
             if self.best_environment is not None and self.best_environment in self.predefined_maps:
-                # Retrieve the best matching environment map
+                
                 best_match_map = self.predefined_maps[self.best_environment]
 
-                # Plot the overlay of the input and the best matching environment
+               
                 self.plot_overlay_map(self.input_grid, best_match_map, 'Input Environment', self.best_environment)
 
-                # Publish the identified best environment
+               
                 self.publish_identified_environment(self.best_environment)
                 self.best_score = float('-inf')
                 self.best_environment = None
@@ -150,36 +148,25 @@ class EnvironmentIdentifier(Node):
         else:
             return grid
 
-    def combined_score(self, input_grid, map_grid):
-        normalized_input = self.normalize_grid(input_grid)
-        normalized_map = self.normalize_grid(map_grid)
-        euclidean = np.linalg.norm(normalized_input.flatten() - normalized_map.flatten())
-        correlation = np.corrcoef(normalized_input.flatten(), normalized_map.flatten())[0, 1]
-        ssim_index = ssim(normalized_input, normalized_map, data_range=normalized_map.max() - normalized_map.min())
-
-        # Example weighting (tweak as necessary)
-        combined = (euclidean * 0.5) + ((1 - correlation) * 0.25) + ((1 - ssim_index) * 0.25)
-        return combined
-
 
     def compare_maps(self, input_grid, predefined_maps):
         scores = {}
         distances = {}
         correlations = {}
         ssims = {}
-        # Normalize the input grid once before comparisons
+        
         normalized_input = self.normalize_grid(input_grid)
         for map_name, map_grid in predefined_maps.items():
-            if input_grid.shape == map_grid.shape:  # Ensure grids are of the same shape
-                # Normalize each predefined map
+            if input_grid.shape == map_grid.shape:  
+                
                 normalized_map = self.normalize_grid(map_grid)
-                # Calculate Euclidean distance for normalized grids
+                
                 distance = np.linalg.norm(normalized_input.flatten() - normalized_map.flatten())
-                # Calculate correlation
+
                 correlation = np.corrcoef(normalized_input.flatten(), normalized_map.flatten())[0, 1]
-                # Calculate structural similarity index
+
                 ssim_index = ssim(normalized_input, normalized_map, data_range=normalized_map.max() - normalized_map.min())
-                # Compute a combined score
+
                 #combined_score = (1 - distance) * 0.5 + correlation * 0.25 + ssim_index * 0.25
                 combined_score = (-distance) * 0.1 + ssim_index * 0.2 + correlation * 12
                 if distance > 11.0 and (correlation + ssim_index) < 0.5:
@@ -192,16 +179,16 @@ class EnvironmentIdentifier(Node):
                 print(f"Distance score for {map_name}: {distance}")
                 print(f"Correlation score for {map_name}: {correlation}")
                 print(f"SSIM index score for {map_name}: {ssim_index}")
-                print(f"Combined score for {map_name}: {combined_score}")  # Debugging print
+                print(f"Combined score for {map_name}: {combined_score}")  
 
         if scores:
-            # Find the map with the highest combined score
+            
             best_match = max(scores, key=scores.get)
             best_score = scores[best_match]
-            print(f"Best match: {best_match} with score: {best_score}")  # Debugging print
+            print(f"Best match: {best_match} with score: {best_score}")  
             return best_match, best_score
         else:
-            return "No valid comparisons", float('-inf')  # Handle case with no valid comparisons
+            return "No valid comparisons", float('-inf')  
 
 
     def publish_identified_environment(self, environment):
